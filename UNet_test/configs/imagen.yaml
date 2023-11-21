@@ -1,0 +1,99 @@
+model:
+  base_learning_rate: 5.0e-5
+  target: unified_ddpm.TestUnetDDPM
+  params:
+    log_every_t: 200
+    timesteps: 1000
+    image_size: 8 # 64x8x8
+    in_channels: 64 # 64x8x8
+    ddim_step: 10
+    input_scale_factor: 0.18215
+    val_image_datapath: './flickr_data/6488_flickr_original_images_clip_val.pt'
+    val_cond_path: './flickr_data/6488_flickr_text_embs_clip_val.pt'
+    monitor: val/loss
+
+    unet_config:
+      target: UNetModel.Imagen_UNetModel
+      params:
+        in_channels: 64 # 64x8x8
+        out_channels: 64 # 64x8x8
+        input_size: 8 # 64x8x8
+        inner_channels: 128
+        n_heads: 8
+        num_downsampling: 2
+        numResPerBlock: 3
+        context_dim: 768
+        skip_connection: True
+        implicit_cross_attention: True # stable diffusion: False, Imagen: True,
+        explicit_cross_attention: False # stable diffusion: True, Imagen: False,
+        cat_x_cond_sequence: False
+        cat_x_cond_embedding: False # stable diffusion: False, Imagen: False, stable diffusion xl: True
+        use_adding_condition: True # stable diffusion: False, Imagen: True,
+        use_scale_shift_norm: True # stable diffusion: False, Imagen: True
+        use_causal_mask: False
+
+    first_stage_config:
+      # target: flickr_ae.AutoencoderKL
+      # params:
+      embed_dim: 64
+      monitor: val/rec_loss
+      ckpt_path: model_6488.ckpt
+      lossconfig:
+        disc_start: 50001
+        kl_weight: 1.0e-06
+        disc_weight: 0.5
+      ddconfig:
+        double_z: true
+        z_channels: 64
+        resolution: 256
+        in_channels: 3
+        out_ch: 3
+        ch: 128
+        ch_mult:
+          - 1
+          - 1
+          - 2
+          - 2
+          - 4
+          - 4
+        num_res_blocks: 2
+        attn_resolutions:
+          - 16
+          - 8
+        dropout: 0.0
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    num_workers: 24
+    batch_size: 16
+    wrap: True
+    train:
+      target: data_flickr.FlickrTrain
+      params:
+        text_path: './flickr_data/6488_flickr_text_embs_clip_train.pt'
+        vision_path: './flickr_data/6488_flickr_vision_embs_clip_train.pt'
+    validation:
+      target: data_flickr.FlickrValidation
+      params:
+        text_path: './flickr_data/6488_flickr_text_embs_clip_val.pt'
+        vision_path: './flickr_data/6488_flickr_vision_embs_clip_val.pt'
+    test:
+      target: data_flickr.FlickrTest
+      params:
+        text_path: './flickr_data/6488_flickr_text_embs_clip_test.pt'
+        vision_path: './flickr_data/6488_flickr_vision_embs_clip_test.pt'
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 1000
+        max_images: 8
+        increase_log_steps: True
+
+  trainer:
+    benchmark: True
+    accumulate_grad_batches: 2
+    max_epoch: 100
