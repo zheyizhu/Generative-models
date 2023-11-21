@@ -7,7 +7,7 @@ import re
 if __name__ == "__main__":
     
     # prepare the models
-    openai.api_key = "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" # your api key
+    openai.api_key = "" # your api key
     unifiedqa_model = UnifiedQAModel("allenai/unifiedqa-v2-t5-large-1363200")
     vqa_model = VQAModel("vilt")
     
